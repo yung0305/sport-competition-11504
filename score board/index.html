@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="zh-TW" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Competition Scorer</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Nunito', sans-serif; }
+    .cute-shadow { box-shadow: 4px 4px 0px rgba(0,0,0,0.1); }
+    .score-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    @keyframes bounce-in {
+      0% { transform: scale(0.8); opacity: 0; }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes bar-grow {
+      from { transform: scaleY(0); }
+      to { transform: scaleY(1); }
+    }
+    .animate-bounce-in { animation: bounce-in 0.4s ease-out; }
+    .bar-animate { animation: bar-grow 0.5s ease-out; transform-origin: bottom; }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+ </head>
+ <body class="h-full bg-gradient-to-br from-pink-100 via-purple-50 to-blue-100">
+  <div id="app" class="h-full overflow-auto p-4 md:p-6">
+   
+   <div class="text-center mb-6">
+    <div class="inline-block bg-white rounded-2xl px-6 py-3 cute-shadow border-4 border-purple-200">
+     <input type="text" id="game-title" placeholder="🎮 輸入遊戲名稱 🎮" class="text-2xl md:text-3xl font-extrabold text-center bg-transparent outline-none text-purple-600 placeholder-purple-300 w-full min-w-[200px]">
+    </div>
+   </div>
+
+   <div class="bg-white rounded-2xl p-4 cute-shadow border-4 border-yellow-200 mb-6 overflow-x-auto">
+    <table class="w-full min-w-[400px]">
+     <thead>
+      <tr id="table-header">
+       <th class="text-left p-2 text-purple-600 font-bold">🏷️ 名稱</th>
+       <th class="text-center p-2 text-purple-600 font-bold">📊 總分</th>
+       <th class="p-2"></th>
+      </tr>
+     </thead>
+     <tbody id="teams-body">
+      </tbody>
+    </table>
+    
+    <div class="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3 w-full">
+      <button id="remove-column-btn" class="bg-orange-400 hover:bg-orange-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base"> ➖ 減少回合 </button> 
+      <button id="add-column-btn" class="bg-green-400 hover:bg-green-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base"> ➕ 增加回合 </button>
+      <button id="sort-btn" class="bg-yellow-400 hover:bg-yellow-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base"> 🏆 依分排序 </button>
+      <button id="reset-btn" class="bg-red-400 hover:bg-red-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base"> 🔄 重置分數 </button>
+      <button id="add-team-btn" class="col-span-2 md:col-span-1 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base"> ➕ 新增隊伍 🎉 </button>
+    </div>
+   </div>
+
+   <div class="bg-white rounded-2xl p-4 cute-shadow border-4 border-green-200">
+    <h2 class="text-xl font-bold text-center text-green-600 mb-2">📈 即時比分圖表</h2>
+    <div id="chart-container" class="flex items-end justify-center gap-4 h-[260px] px-4 mt-4">
+     </div>
+   </div>
+   
+   <div class="text-center mt-6 text-4xl flex justify-center items-center gap-4">
+    <span class="text-yellow-400">⭐</span>
+    <button id="trophy-btn" class="hover:scale-125 transition-transform duration-300 drop-shadow-lg focus:outline-none" title="點擊播放/停止頒獎樂！">
+     🏆
+    </button>
+    <span class="text-yellow-400">⭐</span>
+   </div>
+   
+   <audio id="award-music" src="award.mp3" preload="auto"></audio>
+
+  </div>
+
+  <script>
+    // --- 本地預覽用的 SDK 模擬環境 ---
+    if (typeof window.elementSdk === 'undefined') {
+      window.elementSdk = {
+        init: (cfg) => { if(cfg.onConfigChange) cfg.onConfigChange(cfg.defaultConfig); },
+        setConfig: () => {}
+      };
+    }
+    if (typeof window.dataSdk === 'undefined') {
+      window.dataSdk = {
+        init: (handler) => { 
+          window._mockHandler = handler; 
+          setTimeout(() => handler.onDataChanged([]), 100);
+        },
+        create: async (data) => {
+          data.__backendId = 'mock_id_' + Date.now();
+          teamsData.push(data);
+          if (window._mockHandler) window._mockHandler.onDataChanged(teamsData);
+          return { isOk: true };
+        },
+        update: async (data) => {
+          const idx = teamsData.findIndex(t => t.__backendId === data.__backendId);
+          if (idx > -1) teamsData[idx] = data;
+          if (window._mockHandler) window._mockHandler.onDataChanged(teamsData);
+          return { isOk: true };
+        },
+        delete: async (data) => {
+          teamsData = teamsData.filter(t => t.__backendId !== data.__backendId);
+          if (window._mockHandler) window._mockHandler.onDataChanged(teamsData);
+          return { isOk: true };
+        }
+      };
+    }
+    // -------------------------------------------
+
+    const defaultConfig = {
+      game_title: '🎮 歡樂競賽 🎮',
+      font_family: 'Nunito',
+      font_size: 16,
+      background_color: '#fce7f3',
+      surface_color: '#ffffff',
+      text_color: '#7c3aed',
+      primary_action_color: '#a855f7',
+      secondary_action_color: '#fb923c'
+    };
+
+    let config = { ...defaultConfig };
+    let teamsData = [];
+    let scoreColumns = 3;
+    let isLoading = false;
+
+    const barColors = [
+      '#f472b6', '#a78bfa', '#60a5fa', '#34d399', 
+      '#fbbf24', '#fb923c', '#f87171', '#a3e635'
+    ];
+
+    window.elementSdk.init({
+      defaultConfig,
+      onConfigChange: async (newConfig) => {
+        config = { ...defaultConfig, ...newConfig };
+        document.getElementById('game-title').value = config.game_title;
+      }
+    });
+
+    const dataHandler = {
+      onDataChanged(data) {
+        teamsData = data.sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        if (teamsData.length > 0) {
+          const firstTeamScores = JSON.parse(teamsData[0].scores || '[]');
+          scoreColumns = Math.max(1, firstTeamScores.length);
+        }
+        
+        renderTable();
+        renderChart();
+      }
+    };
+
+    window.dataSdk.init(dataHandler);
+
+    document.getElementById('game-title').addEventListener('input', (e) => {
+      config.game_title = e.target.value;
+      window.elementSdk.setConfig({ game_title: e.target.value });
+    });
+
+    // 🎵 音樂播放按鈕邏輯
+    const trophyBtn = document.getElementById('trophy-btn');
+    const awardMusic = document.getElementById('award-music');
+    let isPlaying = false;
+
+    trophyBtn.addEventListener('click', () => {
+      if (isPlaying) {
+        awardMusic.pause();
+        awardMusic.currentTime = 0;
+        trophyBtn.classList.remove('animate-bounce');
+        showMessage('⏹️ 音樂已停止', 'bg-gray-500');
+      } else {
+        // 加上錯誤捕捉機制，如果找不到檔案會跳出提示
+        awardMusic.play().then(() => {
+          trophyBtn.classList.add('animate-bounce');
+          showMessage('🎵 播放頒獎音樂！', 'bg-pink-500');
+        }).catch(err => {
+          console.error('播放失敗:', err);
+          showMessage('⚠️ 找不到音樂檔！請確保 award.mp3 和 HTML 放在同一個資料夾', 'bg-red-500');
+        });
+      }
+      isPlaying = !isPlaying;
+    });
+
+    awardMusic.addEventListener('ended', () => {
+      isPlaying = false;
+      trophyBtn.classList.remove('animate-bounce');
+    });
+
+    // 新增隊伍
+    document.getElementById('add-team-btn').addEventListener('click', async () => {
+      if (isLoading || teamsData.length >= 999) return;
+      isLoading = true;
+      document.getElementById('add-team-btn').disabled = true;
+      
+      const newTeam = {
+        type: 'team',
+        name: `隊伍 ${teamsData.length + 1}`,
+        scores: JSON.stringify(Array(scoreColumns).fill(0)),
+        order: teamsData.length
+      };
+      
+      try { await window.dataSdk.create(newTeam); } catch (err) {}
+      isLoading = false;
+      document.getElementById('add-team-btn').disabled = false;
+    });
+
+    // 增減回合
+    document.getElementById('add-column-btn').addEventListener('click', async () => {
+      if (isLoading || scoreColumns >= 10) return;
+      scoreColumns++;
+      await updateAllTeamsColumns();
+    });
+
+    document.getElementById('remove-column-btn').addEventListener('click', async () => {
+      if (isLoading || scoreColumns <= 1) return;
+      scoreColumns--;
+      await updateAllTeamsColumns();
+    });
+
+    // 依總分排序
+    document.getElementById('sort-btn').addEventListener('click', async () => {
+      if (isLoading || teamsData.length === 0) return;
+      isLoading = true;
+
+      const getTeamTotal = (team) => JSON.parse(team.scores || '[]').reduce((sum, s) => sum + (parseInt(s) || 0), 0);
+      teamsData.sort((a, b) => getTeamTotal(b) - getTeamTotal(a));
+      
+      for (let i = 0; i < teamsData.length; i++) {
+        teamsData[i].order = i;
+        await window.dataSdk.update(teamsData[i]);
+      }
+      
+      isLoading = false;
+      renderTable();
+      renderChart();
+      showMessage('🏆 已依總分重新排序！', 'bg-yellow-500');
+    });
+
+    // 重置分數
+    document.getElementById('reset-btn').addEventListener('click', async () => {
+      if (isLoading || teamsData.length === 0) return;
+      if (!confirm('⚠️ 確定要將所有隊伍的分數歸零嗎？此動作無法復原。')) return;
+      
+      isLoading = true;
+      for (const team of teamsData) {
+        team.scores = JSON.stringify(Array(scoreColumns).fill(0));
+        await window.dataSdk.update(team);
+      }
+      isLoading = false;
+      renderTable();
+      renderChart();
+      showMessage('🔄 所有分數已歸零！', 'bg-blue-500');
+    });
+
+    async function updateAllTeamsColumns() {
+      isLoading = true;
+      for (const team of teamsData) {
+        let scores = JSON.parse(team.scores || '[]');
+        while (scores.length < scoreColumns) scores.push(0);
+        while (scores.length > scoreColumns) scores.pop();
+        team.scores = JSON.stringify(scores);
+        await window.dataSdk.update(team);
+      }
+      isLoading = false;
+      renderTable();
+    }
+
+    function renderTable() {
+      const header = document.getElementById('table-header');
+      let headerHTML = '<th class="text-left p-2 text-purple-600 font-bold">🏷️ 名稱</th>';
+      for (let i = 0; i < scoreColumns; i++) {
+        headerHTML += `<th class="text-center p-2 text-purple-600 font-bold min-w-[60px]">回合 ${i + 1}</th>`;
+      }
+      headerHTML += '<th class="text-center p-2 text-purple-600 font-bold">📊 總分</th><th class="p-2"></th>';
+      header.innerHTML = headerHTML;
+
+      const tbody = document.getElementById('teams-body');
+      if (teamsData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${scoreColumns + 3}" class="text-center py-8 text-gray-400"><div class="text-4xl mb-2">🎯</div><div>點擊「新增隊伍」開始比賽！</div></td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = teamsData.map((team, index) => {
+        const scores = JSON.parse(team.scores || '[]');
+        const total = scores.reduce((sum, s) => sum + (parseInt(s) || 0), 0);
+        
+        let row = `<tr class="border-t border-purple-100 animate-bounce-in" style="animation-delay: ${index * 0.05}s">
+            <td class="p-2">
+              <input type="text" value="${escapeHtml(team.name)}" data-id="${team.__backendId}" class="name-input w-full px-3 py-2 rounded-lg border-2 border-purple-200 focus:border-purple-400 outline-none font-semibold text-purple-700 bg-purple-50">
+            </td>`;
+        
+        for (let i = 0; i < scoreColumns; i++) {
+          row += `<td class="p-2 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <button data-id="${team.__backendId}" data-index="${i}" data-action="decrease" class="score-btn w-7 h-7 bg-red-400 hover:bg-red-500 text-white rounded-full font-bold text-sm transition-all hover:scale-110">−</button>
+                <input type="number" value="${scores[i] || 0}" data-id="${team.__backendId}" data-index="${i}" class="score-input w-14 text-center px-1 py-1 rounded-lg border-2 border-yellow-300 focus:border-yellow-500 outline-none font-bold text-lg">
+                <button data-id="${team.__backendId}" data-index="${i}" data-action="increase" class="score-btn w-7 h-7 bg-green-400 hover:bg-green-500 text-white rounded-full font-bold text-sm transition-all hover:scale-110">+</button>
+              </div>
+            </td>`;
+        }
+        
+        row += `<td class="p-2 text-center"><span class="inline-block bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-2 rounded-xl font-extrabold text-lg cute-shadow">${total}</span></td>
+            <td class="p-2"><button data-id="${team.__backendId}" class="delete-btn w-8 h-8 bg-gray-300 hover:bg-red-400 text-white rounded-full font-bold transition-all hover:scale-110">✕</button></td></tr>`;
+        return row;
+      }).join('');
+
+      attachTableListeners();
+    }
+
+    function attachTableListeners() {
+      document.querySelectorAll('.name-input').forEach(input => {
+        input.addEventListener('change', async (e) => {
+          const id = e.target.dataset.id;
+          const team = teamsData.find(t => t.__backendId === id);
+          if (team) { team.name = e.target.value; await window.dataSdk.update(team); }
+        });
+      });
+
+      document.querySelectorAll('.score-input').forEach(input => {
+        input.addEventListener('change', async (e) => {
+          const id = e.target.dataset.id;
+          const index = parseInt(e.target.dataset.index);
+          const team = teamsData.find(t => t.__backendId === id);
+          if (team) {
+            const scores = JSON.parse(team.scores || '[]');
+            scores[index] = parseInt(e.target.value) || 0;
+            team.scores = JSON.stringify(scores);
+            await window.dataSdk.update(team);
+          }
+        });
+      });
+
+      document.querySelectorAll('.score-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.target.dataset.id;
+          const index = parseInt(e.target.dataset.index);
+          const action = e.target.dataset.action;
+          const team = teamsData.find(t => t.__backendId === id);
+          if (team) {
+            const scores = JSON.parse(team.scores || '[]');
+            scores[index] = (scores[index] || 0) + (action === 'increase' ? 1 : -1);
+            team.scores = JSON.stringify(scores);
+            await window.dataSdk.update(team);
+          }
+        });
+      });
+
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const id = e.target.dataset.id;
+          const team = teamsData.find(t => t.__backendId === id);
+          if (team) {
+            if (btn.dataset.confirm === 'true') {
+              await window.dataSdk.delete(team);
+              btn.dataset.confirm = 'false';
+            } else {
+              btn.dataset.confirm = 'true';
+              btn.innerHTML = '✓';
+              btn.classList.remove('bg-gray-300');
+              btn.classList.add('bg-red-500');
+              setTimeout(() => {
+                if (btn.dataset.confirm === 'true') {
+                  btn.dataset.confirm = 'false';
+                  btn.innerHTML = '✕';
+                  btn.classList.remove('bg-red-500');
+                  btn.classList.add('bg-gray-300');
+                }
+              }, 2000);
+            }
+          }
+        });
+      });
+    }
+
+    function renderChart() {
+      const container = document.getElementById('chart-container');
+      if (teamsData.length === 0) {
+        container.innerHTML = `<div class="text-gray-400 text-center flex flex-col justify-end h-full pb-8"><div class="text-4xl mb-2">📊</div><div>新增隊伍後即可看到圖表</div></div>`;
+        return;
+      }
+
+      const totals = teamsData.map(team => {
+        const scores = JSON.parse(team.scores || '[]');
+        return scores.reduce((sum, s) => sum + (parseInt(s) || 0), 0);
+      });
+      
+      const maxScore = Math.max(...totals, 1);
+      const maxIndex = totals.indexOf(maxScore);
+
+      container.innerHTML = teamsData.map((team, index) => {
+        const total = totals[index];
+        const height = Math.max((total / maxScore) * 160, 20);
+        const color = barColors[index % barColors.length];
+        const isFirst = index === maxIndex && total === maxScore && total > 0;
+        
+        return `
+          <div class="flex flex-col items-center gap-2">
+            ${isFirst ? '<div class="text-3xl animate-bounce">🏆</div>' : '<div class="h-9"></div>'}
+            <div class="relative" style="height: 160px; display: flex; align-items: flex-end;">
+              <div 
+                class="bar-animate w-12 md:w-16 rounded-t-xl cute-shadow flex items-start justify-center pt-2"
+                style="height: ${height}px; background: ${color};"
+              >
+                <span class="text-white font-bold text-sm">${total}</span>
+              </div>
+            </div>
+            <div class="text-center">
+              <div class="w-16 md:w-20 truncate font-semibold text-purple-700 text-sm">${escapeHtml(team.name)}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showMessage(msg, bgColorClass = 'bg-red-500') {
+      const toast = document.createElement('div');
+      toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 text-white px-6 py-3 rounded-xl font-bold z-50 animate-bounce-in ${bgColorClass}`;
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    document.getElementById('game-title').value = config.game_title;
+  </script>
+ </body>
+</html>

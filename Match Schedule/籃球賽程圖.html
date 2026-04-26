@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>教職員親子籃球同樂日 - 賽程計分系統</title>
+  
+  <!-- 載入 Tailwind CSS (樣式) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 載入 React 引擎 -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- 載入 Babel (讓瀏覽器能即時看得懂 JSX) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body { background-color: #f8fafc; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- 主程式腳本 -->
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // ==========================================
+    // 內建圖示庫 (取代原先的 lucide-react，確保單機絕對可用)
+    // ==========================================
+    const Trophy = ({className, onClick, title}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} onClick={onClick} title={title}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>;
+    const Users = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+    const ChevronRight = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6"/></svg>;
+    const Save = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>;
+    const RotateCcw = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
+    const Medal = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/></svg>;
+    const Network = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg>;
+    const Sparkles = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>;
+    const MessageSquare = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
+    const ArrowDownToLine = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>;
+
+    // ==========================================
+    // Gemini API Helper (具有指數退避重試機制)
+    // ==========================================
+    const apiKey = ""; // 若要在單機使用 AI 功能，請在此填入 Gemini API Key
+    const generateTextWithGemini = async (prompt) => {
+      if(!apiKey) return "提示：需填入 API Key 才能產生！";
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+      const payload = { contents: [{ parts: [{ text: prompt }] }] };
+      const delays = [1000, 2000, 4000, 8000, 16000];
+      
+      for (let attempt = 0; attempt <= delays.length; attempt++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const result = await response.json();
+          return result.candidates?.[0]?.content?.parts?.[0]?.text || "產生失敗。";
+        } catch (error) {
+          if (attempt === delays.length) return "AI 伺服器忙碌中，請稍後再試。";
+          await new Promise(res => setTimeout(res, delays[attempt]));
+        }
+      }
+    };
+
+    // ==========================================
+    // 決賽樹狀圖元件
+    // ==========================================
+    const TournamentBracket = ({ bracketData, onUpdateBracket }) => {
+      if (!bracketData || bracketData.length === 0) return null;
+
+      const playChampionSound = () => {
+        // 請確保您的 mp3 檔案與這個 html 檔放在同一個資料夾底下
+        const audio = new Audio('./13 頒獎樂金馬獎頒獎樂.mp3');
+        audio.volume = 0.8;
+        audio.play().catch(err => {
+          console.error("無法播放音效:", err);
+          alert("請確認 13 頒獎樂金馬獎頒獎樂.mp3 檔案是否放在與網頁同一個資料夾，且瀏覽器允許播放聲音！");
+        });
+      };
+
+      return (
+        <div className="flex w-full overflow-x-auto py-8 px-4 gap-6 min-h-[400px] bg-slate-50 rounded-xl border border-slate-200">
+          {bracketData.map((round, rIdx) => {
+            const isChampion = rIdx === bracketData.length - 1;
+            const matchesCount = isChampion ? 1 : round.length / 2;
+            
+            return (
+              <div key={rIdx} className="flex flex-col w-48 flex-shrink-0 gap-0">
+                {isChampion ? (
+                  <div className="flex flex-col items-center justify-around h-full relative">
+                    <div className="w-full relative z-10 px-2 flex flex-col items-center">
+                      <Trophy 
+                        onClick={playChampionSound}
+                        className="w-12 h-12 text-yellow-500 mb-2 drop-shadow-md cursor-pointer hover:scale-125 hover:drop-shadow-xl active:scale-95 transition-all duration-300" 
+                        title="點擊播放金馬獎頒獎樂！"
+                      />
+                      <input 
+                        value={round[0] || ''}
+                        onChange={(e) => onUpdateBracket(rIdx, 0, e.target.value)}
+                        placeholder="👑 冠軍"
+                        className="w-full p-2 text-center text-lg font-black rounded-lg border-2 border-yellow-400 bg-yellow-50 text-yellow-700 shadow-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  Array.from({ length: matchesCount }).map((_, mIdx) => {
+                    const t1Idx = mIdx * 2;
+                    const t2Idx = mIdx * 2 + 1;
+                    return (
+                      <div key={mIdx} className="flex flex-col justify-around relative flex-1 min-h-[120px]">
+                        <div className="px-2 w-full relative z-10">
+                          <input 
+                            value={round[t1Idx] || ''}
+                            onChange={(e) => onUpdateBracket(rIdx, t1Idx, e.target.value)}
+                            placeholder="晉級隊伍"
+                            className="w-full h-10 p-2 text-center text-sm font-bold rounded-lg border-2 border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm bg-white text-slate-800"
+                          />
+                        </div>
+                        <div className="px-2 w-full relative z-10 mt-4">
+                          <input 
+                            value={round[t2Idx] || ''}
+                            onChange={(e) => onUpdateBracket(rIdx, t2Idx, e.target.value)}
+                            placeholder="晉級隊伍"
+                            className="w-full h-10 p-2 text-center text-sm font-bold rounded-lg border-2 border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm bg-white text-slate-800"
+                          />
+                        </div>
+                        <div className="absolute right-[-12px] w-[12px] border-r-2 border-y-2 border-slate-300 rounded-r-md pointer-events-none" style={{ top: '25%', bottom: '25%' }}></div>
+                        <div className="absolute right-[-24px] w-[12px] border-t-2 border-slate-300 pointer-events-none" style={{ top: '50%' }}></div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )
+          })}
+        </div>
+      );
+    };
+
+    // ==========================================
+    // 賽程循環圖表元件
+    // ==========================================
+    const GroupGraph = ({ groupName, teams, matches }) => {
+      const n = teams.length;
+      if (n < 2) return <div className="p-8 text-center text-slate-400 font-medium border-2 border-dashed border-slate-200 rounded-lg w-full bg-white">隊伍數不足，無法產生圖形</div>;
+
+      const size = 400;
+      const cx = size / 2;
+      const cy = size / 2;
+      const r = 120; 
+
+      const getPos = (i, offset = 0) => {
+        const angle = (i * 2 * Math.PI) / n - Math.PI / 2;
+        return {
+          x: cx + (r + offset) * Math.cos(angle),
+          y: cy + (r + offset) * Math.sin(angle),
+          angle
+        };
+      };
+
+      const teamIndices = {};
+      teams.forEach((t, i) => { teamIndices[t.id] = i; });
+
+      return (
+        <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-md mx-auto h-auto font-sans overflow-visible">
+          {matches.map(m => {
+            const i1 = teamIndices[m.team1Id];
+            const i2 = teamIndices[m.team2Id];
+            if (i1 === undefined || i2 === undefined) return null;
+
+            const p1 = getPos(i1);
+            const p2 = getPos(i2);
+            
+            let mx = (p1.x + p2.x) / 2;
+            let my = (p1.y + p2.y) / 2;
+            
+            const distToCenter = Math.sqrt((mx - cx) ** 2 + (my - cy) ** 2);
+            if (distToCenter < 35) {
+              const dx = p1.x - mx;
+              const dy = p1.y - my;
+              const len = Math.sqrt(dx*dx + dy*dy);
+              if (len > 0) {
+                mx += (dx / len) * 40;
+                my += (dy / len) * 40;
+              }
+            }
+            if (n === 2) mx += 30;
+
+            return (
+              <g key={m.id}>
+                <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#cbd5e1" strokeWidth="2" />
+                <circle cx={mx} cy={my} r="14" fill="#f8fafc" />
+                <text x={mx} y={my} textAnchor="middle" dominantBaseline="central" fontSize="13" fill="#64748b" fontWeight="bold">
+                  ({m.id})
+                </text>
+              </g>
+            );
+          })}
+          <circle cx={cx} cy={cy} r="22" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="2" />
+          <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize="24" fontWeight="black" fill="#1e40af">{groupName}</text>
+          {teams.map((t, i) => {
+            const p = getPos(i);
+            const labelP = getPos(i, 20); 
+            let anchor = "middle"; let baseline = "central";
+            const cosVal = Math.cos(labelP.angle); const sinVal = Math.sin(labelP.angle);
+            
+            if (cosVal > 0.1) anchor = "start"; else if (cosVal < -0.1) anchor = "end";
+            if (sinVal > 0.1) baseline = "hanging"; else if (sinVal < -0.1) baseline = "alphabetic";
+            
+            let lx = labelP.x; let ly = labelP.y;
+            if (anchor === "start") lx += 6; if (anchor === "end") lx -= 6;
+            if (baseline === "hanging") ly += 6; if (baseline === "alphabetic") ly -= 6;
+
+            return (
+              <g key={t.id}>
+                <circle cx={p.x} cy={p.y} r="5" fill="#3b82f6" stroke="#ffffff" strokeWidth="2" />
+                <text x={lx} y={ly} textAnchor={anchor} dominantBaseline={baseline} fontSize="15" fill="#1e293b" fontWeight="800">
+                  {i + 1}. {t.name}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      );
+    };
+
+    // ==========================================
+    // 單場賽事卡片元件
+    // ==========================================
+    const MatchCard = ({ match, t1, t2, onUpdateScore, hasComment, isLoadingComment, onGenerateComment }) => {
+      const [s1, setS1] = useState(match.t1Score);
+      const [s2, setS2] = useState(match.t2Score);
+
+      const handleSave = () => onUpdateScore(match.id, s1, s2);
+      const isComplete = match.isFinished;
+      const safeT1Name = t1?.name || "未知隊伍";
+      const safeT2Name = t2?.name || "未知隊伍";
+
+      return (
+        <div className={`relative bg-white rounded-xl border-2 transition-all flex flex-col overflow-hidden ${isComplete ? 'border-emerald-200 shadow-sm' : 'border-slate-200 shadow-md hover:border-blue-300'}`}>
+          {isComplete && (
+            <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 z-10">
+              <Save className="w-3 h-3"/> 已登錄
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row items-stretch">
+            <div className="bg-slate-100 px-4 py-2 sm:py-0 flex items-center justify-center text-slate-400 font-bold text-sm sm:border-r border-slate-200">
+              場次({match.id})
+            </div>
+            <div className="flex-1 flex flex-col sm:flex-row items-center justify-between p-4 gap-4 mt-2 sm:mt-0">
+              <div className="flex-1 flex items-center justify-end gap-3 w-full sm:w-auto">
+                <span className="font-bold text-lg text-slate-700 text-right">{safeT1Name}</span>
+                <input 
+                  type="number" min="0" placeholder="-" value={s1} onChange={(e) => setS1(e.target.value)}
+                  className="w-16 h-12 text-center text-xl font-black rounded-lg border-2 bg-white border-slate-300 focus:border-blue-500 text-blue-600 focus:outline-none focus:ring-2"
+                />
+              </div>
+              <div className="bg-slate-100 text-slate-400 font-black text-xs px-2 py-1 rounded-md">VS</div>
+              <div className="flex-1 flex items-center justify-start gap-3 w-full sm:w-auto flex-row-reverse sm:flex-row">
+                <input 
+                  type="number" min="0" placeholder="-" value={s2} onChange={(e) => setS2(e.target.value)}
+                  className="w-16 h-12 text-center text-xl font-black rounded-lg border-2 bg-white border-slate-300 focus:border-blue-500 text-blue-600 focus:outline-none focus:ring-2"
+                />
+                <span className="font-bold text-lg text-slate-700 text-left">{safeT2Name}</span>
+              </div>
+              <div className="w-full sm:w-auto flex flex-col gap-2 justify-center pl-0 sm:pl-4 sm:border-l border-slate-100">
+                <button 
+                  onClick={handleSave}
+                  className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${isComplete ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                >
+                  {isComplete ? '修改' : '儲存'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {isComplete && (
+            <div className="bg-emerald-50/50 border-t border-emerald-100 p-3 flex flex-col gap-2">
+              {hasComment ? (
+                <div className="flex items-start gap-2 text-sm text-emerald-800 bg-white p-3 rounded-lg border border-emerald-100 shadow-sm">
+                  <MessageSquare className="w-4 h-4 mt-0.5 text-emerald-500 flex-shrink-0" />
+                  <p className="font-medium leading-relaxed">{hasComment}</p>
+                </div>
+              ) : (
+                <div className="flex justify-end pr-2">
+                  <button
+                    onClick={() => onGenerateComment(match.id, safeT1Name, safeT2Name, s1, s2)}
+                    disabled={isLoadingComment}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-600 bg-emerald-100 hover:bg-emerald-200 rounded-md transition-colors disabled:opacity-50"
+                  >
+                    {isLoadingComment ? <RotateCcw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {isLoadingComment ? '產生講評中...' : '✨ AI 賽後講評'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // ==========================================
+    // 主程式 APP
+    // ==========================================
+    function App() {
+      const [step, setStep] = useState(1); 
+      const [numTeams, setNumTeams] = useState(8);
+      const [numGroups, setNumGroups] = useState(2);
+      const [numFinalists, setNumFinalists] = useState(4); 
+      const [teams, setTeams] = useState([]);
+      const [matches, setMatches] = useState([]);
+      const [bracketData, setBracketData] = useState([]); 
+
+      const [confirmDialog, setConfirmDialog] = useState(null); 
+
+      const [loadingNames, setLoadingNames] = useState({});
+      const [matchComments, setMatchComments] = useState({});
+      const [loadingComments, setLoadingComments] = useState({});
+
+      const handleAIGenerateTeamName = async (teamId) => {
+        setLoadingNames(prev => ({ ...prev, [teamId]: true }));
+        const prompt = "請為「教職員親子籃球同樂日」想一個充滿活力、趣味或幽默的籃球隊名，限制在 3 到 6 個字以內。只需直接回覆隊名本身，不要任何引號、標點符號或其他說明文字。";
+        const newName = await generateTextWithGemini(prompt);
+        handleUpdateTeamName(teamId, newName.trim());
+        setLoadingNames(prev => ({ ...prev, [teamId]: false }));
+      };
+
+      const handleAIGenerateCommentary = async (matchId, t1Name, t2Name, s1, s2) => {
+        setLoadingComments(prev => ({ ...prev, [matchId]: true }));
+        const prompt = `這是一場「教職員親子籃球同樂日」的趣味籃球賽。主隊「${t1Name}」得到 ${s1} 分，客隊「${t2Name}」得到 ${s2} 分。請以幽默、熱血的體育主播口吻，寫一段約 40~60 字的賽後趣味短評。包含一些適當的表情符號！`;
+        const comment = await generateTextWithGemini(prompt);
+        setMatchComments(prev => ({ ...prev, [matchId]: comment.trim() }));
+        setLoadingComments(prev => ({ ...prev, [matchId]: false }));
+      };
+
+      const handleGenerateDistribution = () => {
+        // 1. 建立平均的小組 ID 池
+        let groupIds = [];
+        for (let i = 0; i < numTeams; i++) {
+          groupIds.push(i % numGroups);
+        }
+        
+        // 2. 使用 Fisher-Yates 洗牌演算法隨機打亂分組池
+        for (let i = groupIds.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [groupIds[i], groupIds[j]] = [groupIds[j], groupIds[i]];
+        }
+
+        // 3. 分派給各隊伍
+        const newTeams = [];
+        for (let i = 0; i < numTeams; i++) {
+          newTeams.push({ id: i + 1, name: `隊伍 ${i + 1}`, groupId: groupIds[i] });
+        }
+        setTeams(newTeams);
+        setStep(1.5); 
+      };
+
+      const handleUpdateTeamName = (id, newName) => {
+        setTeams(teams.map(t => t.id === id ? { ...t, name: newName } : t));
+      };
+
+      const handleStartTournament = () => {
+        const allGroupsRounds = []; 
+        let maxRounds = 0;
+
+        // 針對每個小組，使用「循環賽輪轉法 (Circle Method)」產生賽程輪次
+        for (let g = 0; g < numGroups; g++) {
+          const groupTeams = teams.filter(t => t.groupId === g);
+          let n = groupTeams.length;
+          if (n < 2) continue;
+          
+          const teamsForSch = [...groupTeams];
+          // 若隊伍為奇數，補上一個 Dummy (作為輪空 Bye 使用)
+          if (n % 2 !== 0) { 
+             teamsForSch.push({ id: 'dummy' }); 
+             n++; 
+          }
+          
+          const numRounds = n - 1;
+          if (numRounds > maxRounds) maxRounds = numRounds;
+          const half = n / 2;
+          
+          const teamIndexes = Array.from({length: n}, (_, i) => i);
+          teamIndexes.shift(); // 移除首位 (即索引 0，作為固定不動的支點)
+          
+          const groupRounds = [];
+          for (let round = 0; round < numRounds; round++) {
+            const roundMatchups = [];
+            
+            // 支點與當前陣列最後一名的配對
+            let t1 = teamsForSch[0];
+            let t2 = teamsForSch[teamIndexes[teamIndexes.length - 1]];
+            if (t1.id !== 'dummy' && t2.id !== 'dummy') {
+               roundMatchups.push({ t1, t2 });
+            }
+            
+            // 陣列中其他隊伍的首尾配對
+            for(let i = 0; i < half - 1; i++) {
+               let teamA = teamsForSch[teamIndexes[i]];
+               let teamB = teamsForSch[teamIndexes[teamIndexes.length - 2 - i]];
+               if (teamA.id !== 'dummy' && teamB.id !== 'dummy') {
+                  roundMatchups.push({ t1: teamA, t2: teamB });
+               }
+            }
+            groupRounds.push(roundMatchups);
+            
+            // 輪轉：將陣列最後一個移到最前面
+            teamIndexes.unshift(teamIndexes.pop());
+          }
+          allGroupsRounds.push({ groupId: g, rounds: groupRounds });
+        }
+
+        const newMatches = [];
+        let matchId = 1;
+        
+        // 將不同小組的同一輪賽事「交錯排列」，讓各組比賽穿插進行以增加休息時間
+        for (let r = 0; r < maxRounds; r++) {
+           for (const gData of allGroupsRounds) {
+              if (r < gData.rounds.length) {
+                 const roundMatchups = gData.rounds[r];
+                 roundMatchups.forEach(pair => {
+                    newMatches.push({
+                       id: matchId++,
+                       groupId: gData.groupId,
+                       team1Id: pair.t1.id,
+                       team2Id: pair.t2.id,
+                       t1Score: '', t2Score: '', isFinished: false
+                    });
+                 });
+              }
+           }
+        }
+        setMatches(newMatches);
+
+        let nFinal = parseInt(numFinalists) || 4;
+        if (nFinal < 2) nFinal = 2;
+        const rounds = Math.ceil(Math.log2(nFinal)); 
+        const newBracket = [];
+        for (let i = 0; i <= rounds; i++) {
+           const slots = Math.pow(2, rounds - i);
+           newBracket.push(new Array(slots).fill(''));
+        }
+        setBracketData(newBracket);
+        setStep(2);
+      };
+
+      const handleUpdateScore = (matchId, t1Score, t2Score) => {
+        setMatches(matches.map(m => {
+          if (m.id === matchId) { return { ...m, t1Score, t2Score, isFinished: t1Score !== '' && t2Score !== '' }; }
+          return m;
+        }));
+      };
+
+      const handleUpdateBracket = (rIdx, slotIdx, value) => {
+        const newBracket = [...bracketData];
+        newBracket[rIdx] = [...newBracket[rIdx]];
+        newBracket[rIdx][slotIdx] = value;
+        setBracketData(newBracket);
+      };
+
+      const handleReset = () => {
+        setConfirmDialog({
+          message: "確定要重設所有賽程與比分嗎？資料將無法復原。",
+          onConfirm: () => {
+            setStep(1); setTeams([]); setMatches([]); setBracketData([]); setMatchComments({});
+          }
+        });
+      };
+
+      const standings = useMemo(() => {
+        const stats = {};
+        teams.forEach(t => { stats[t.id] = { ...t, win: 0, loss: 0, pointsFor: 0, pointsAgainst: 0 }; });
+
+        matches.forEach(m => {
+          if (m.isFinished) {
+            const s1 = parseInt(m.t1Score) || 0; const s2 = parseInt(m.t2Score) || 0;
+            stats[m.team1Id].pointsFor += s1; stats[m.team1Id].pointsAgainst += s2;
+            stats[m.team2Id].pointsFor += s2; stats[m.team2Id].pointsAgainst += s1;
+
+            if (s1 > s2) { stats[m.team1Id].win += 1; stats[m.team2Id].loss += 1; } 
+            else if (s2 > s1) { stats[m.team2Id].win += 1; stats[m.team1Id].loss += 1; }
+          }
+        });
+
+        const groupedStats = Array.from({ length: numGroups }, () => []);
+        Object.values(stats).forEach(teamStat => {
+          teamStat.pointDiff = teamStat.pointsFor - teamStat.pointsAgainst;
+          groupedStats[teamStat.groupId].push(teamStat);
+        });
+
+        groupedStats.forEach(group => {
+          group.sort((a, b) => {
+            if (b.win !== a.win) return b.win - a.win; 
+            return b.pointDiff - a.pointDiff; 
+          });
+        });
+
+        return groupedStats;
+      }, [teams, matches, numGroups]);
+
+      const handleAutoAdvance = () => {
+        setConfirmDialog({
+          message: "系統將會覆蓋目前第一輪的樹狀圖名單，自動帶入最高排名的晉級隊伍，確定執行嗎？",
+          onConfirm: () => {
+            const allRanked = [];
+            const maxTeamsInGroup = Math.max(...standings.map(g => g.length), 0);
+            
+            for (let rank = 0; rank < maxTeamsInGroup; rank++) {
+              let pool = standings.map(g => g[rank]).filter(Boolean); 
+              pool.sort((a,b) => {
+                if (b.win !== a.win) return b.win - a.win;
+                return b.pointDiff - a.pointDiff;
+              });
+              allRanked.push(...pool);
+            }
+
+            const bracketSlots = bracketData[0].length;
+            let n = parseInt(numFinalists) || 4;
+            const topTeams = allRanked.slice(0, n);
+
+            const seedingMap = {
+              2: [0, 1], 4: [0, 3, 1, 2], 8: [0, 7, 3, 4, 1, 6, 2, 5],
+              16: [0, 15, 7, 8, 3, 12, 4, 11, 1, 14, 6, 9, 2, 13, 5, 10]
+            };
+            
+            const seeds = seedingMap[bracketSlots] || Array.from({length: bracketSlots}, (_, i) => i);
+            const newRound0 = new Array(bracketSlots).fill('');
+            for (let i = 0; i < bracketSlots; i++) {
+              const team = topTeams[seeds[i]];
+              newRound0[i] = team ? team.name : ''; 
+            }
+
+            const newBracket = [...bracketData];
+            newBracket[0] = newRound0;
+            setBracketData(newBracket);
+          }
+        });
+      };
+
+      const getGroupName = (idx) => String.fromCharCode(65 + idx); 
+
+      return (
+        <div className="min-h-screen text-slate-800 font-sans p-4 md:p-8">
+          <div className="max-w-7xl mx-auto space-y-6">
+            <header className="bg-white shadow-sm rounded-2xl p-6 border-l-8 border-blue-600 flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-extrabold text-blue-900 tracking-tight flex items-center gap-3">
+                  <Trophy className="text-yellow-500 w-8 h-8" />
+                  教職員親子籃球同樂日
+                </h1>
+                <p className="text-slate-500 mt-2 font-medium">即時賽程與戰績計分系統</p>
+              </div>
+              {step === 2 && (
+                <button onClick={handleReset} className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors text-sm font-semibold">
+                  <RotateCcw className="w-4 h-4" /> 重新設定
+                </button>
+              )}
+            </header>
+
+            {step < 2 && (
+              <div className="bg-white shadow-sm rounded-2xl p-8 border border-slate-100">
+                <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                  <Users className="w-6 h-6 text-blue-500" /> 賽事前置作業
+                </h2>
+                
+                <div className="flex flex-col md:flex-row gap-6 items-end">
+                  <div className="flex-1 w-full">
+                    <label className="block text-sm font-bold text-slate-600 mb-2">參賽隊伍總數</label>
+                    <input type="number" min="2" max="30" value={numTeams} onChange={(e) => setNumTeams(Math.max(2, parseInt(e.target.value) || 0))} disabled={step === 1.5} className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400 transition-colors" />
+                  </div>
+                  <div className="flex-1 w-full">
+                    <label className="block text-sm font-bold text-slate-600 mb-2">預賽分組數 (採循環賽)</label>
+                    <input type="number" min="1" max="10" value={numGroups} onChange={(e) => setNumGroups(Math.max(1, parseInt(e.target.value) || 0))} disabled={step === 1.5} className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400 transition-colors" />
+                  </div>
+                  <div className="flex-1 w-full">
+                    <label className="block text-sm font-bold text-slate-600 mb-2">預計決賽隊伍數</label>
+                    <input type="number" min="2" max="16" value={numFinalists} onChange={(e) => setNumFinalists(Math.max(2, parseInt(e.target.value) || 2))} disabled={step === 1.5} className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400 transition-colors" />
+                  </div>
+                  {step === 1 && (
+                    <button onClick={handleGenerateDistribution} className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors shadow-lg shadow-blue-200">
+                      開始分組
+                    </button>
+                  )}
+                </div>
+
+                {step === 1.5 && (
+                  <div className="mt-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-slate-800">各組隊伍名單設定</h3>
+                      <span className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full font-medium">您可以直接點擊隊名或使用 AI 產生</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {Array.from({ length: numGroups }).map((_, g) => {
+                        const groupTeams = teams.filter(t => t.groupId === g);
+                        return (
+                          <div key={g} className="bg-slate-50 rounded-xl p-5 border border-slate-200">
+                            <h4 className="font-bold text-blue-800 text-lg mb-4 flex items-center justify-between">
+                              <span>{getGroupName(g)} 組</span>
+                              <span className="text-sm text-slate-400 font-normal bg-white px-2 py-0.5 rounded border border-slate-200">{groupTeams.length} 隊</span>
+                            </h4>
+                            <div className="space-y-3">
+                              {groupTeams.map((team, idx) => (
+                                <div key={team.id} className="flex items-center gap-3 bg-white p-2 rounded-lg border border-slate-100 shadow-sm focus-within:border-blue-400 transition-all">
+                                  <span className="text-slate-400 font-mono text-sm w-5 text-right">{idx + 1}.</span>
+                                  <input type="text" value={team.name} onChange={(e) => handleUpdateTeamName(team.id, e.target.value)} className="flex-1 bg-transparent font-medium text-slate-700 focus:outline-none w-full" placeholder={`輸入隊名...`} />
+                                  <button onClick={() => handleAIGenerateTeamName(team.id)} disabled={loadingNames[team.id]} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50 flex-shrink-0" title="✨ AI 產生趣味隊名">
+                                    {loadingNames[team.id] ? <RotateCcw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    <div className="mt-10 flex justify-center">
+                      <button onClick={handleStartTournament} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-lg font-bold py-4 px-12 rounded-full transition-all hover:scale-105 shadow-xl shadow-emerald-200">
+                        產生賽程圖表 <ChevronRight className="w-6 h-6" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-8 animate-in fade-in duration-700">
+                <div className="bg-white p-6 shadow-sm rounded-2xl border border-slate-100">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+                      <Trophy className="w-6 h-6 text-yellow-500" /> 決賽樹狀圖
+                    </h2>
+                    <button onClick={handleAutoAdvance} className="flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold py-2 px-4 rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center">
+                      <ArrowDownToLine className="w-5 h-5" /> 依照目前戰績自動排定
+                    </button>
+                  </div>
+                  <TournamentBracket bracketData={bracketData} onUpdateBracket={handleUpdateBracket} />
+                </div>
+
+                <div className="bg-white p-6 shadow-sm rounded-2xl border border-slate-100">
+                  <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2 mb-6">
+                    <Network className="w-6 h-6 text-indigo-500" /> 小組賽程循環圖
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {Array.from({ length: numGroups }).map((_, g) => {
+                      const groupTeams = teams.filter(t => t.groupId === g);
+                      const groupMatches = matches.filter(m => m.groupId === g);
+                      return (
+                        <div key={g} className="bg-slate-50 border border-slate-200 rounded-xl p-6 flex flex-col items-center">
+                          <GroupGraph groupName={getGroupName(g)} teams={groupTeams} matches={groupMatches} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                  <div className="xl:col-span-5 space-y-6">
+                    <div className="sticky top-6 space-y-6">
+                      <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                        <Medal className="w-6 h-6 text-orange-500" /> 小組戰績排行
+                      </h2>
+                      {standings.map((group, g) => (
+                        <div key={g} className="bg-white shadow-md rounded-2xl overflow-hidden border border-slate-100">
+                          <div className="bg-slate-800 text-white px-5 py-3 font-bold text-lg flex justify-between items-center">
+                            <span>{getGroupName(g)} 組戰績</span>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                              <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                                <tr>
+                                  <th className="px-4 py-3 w-12 text-center">名次</th>
+                                  <th className="px-4 py-3">隊伍</th>
+                                  <th className="px-3 py-3 text-center">勝</th>
+                                  <th className="px-3 py-3 text-center">敗</th>
+                                  <th className="px-3 py-3 text-center text-blue-600">淨勝</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {group.map((team, idx) => (
+                                  <tr key={team.id} className={`hover:bg-slate-50 transition-colors ${idx === 0 ? 'bg-yellow-50/50' : ''}`}>
+                                    <td className="px-4 py-3 text-center font-bold text-slate-500">{idx === 0 ? <span className="text-xl">👑</span> : idx + 1}</td>
+                                    <td className="px-4 py-3 font-bold text-slate-800">{team.name}</td>
+                                    <td className="px-3 py-3 text-center font-bold text-emerald-600">{team.win}</td>
+                                    <td className="px-3 py-3 text-center font-bold text-red-500">{team.loss}</td>
+                                    <td className="px-3 py-3 text-center font-extrabold text-blue-600">{team.pointDiff > 0 ? `+${team.pointDiff}` : team.pointDiff}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="xl:col-span-7 space-y-6">
+                    <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                      <Trophy className="w-6 h-6 text-blue-500" /> 賽程與計分台
+                    </h2>
+                    <div className="space-y-8">
+                      {Array.from({ length: numGroups }).map((_, g) => {
+                        const groupMatches = matches.filter(m => m.groupId === g);
+                        if (groupMatches.length === 0) return null;
+                        return (
+                          <div key={g} className="bg-white shadow-md rounded-2xl border border-slate-200 overflow-hidden">
+                            <div className="bg-blue-600 text-white px-6 py-4 font-bold text-xl flex items-center gap-3">
+                              <span className="bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center font-black">{getGroupName(g)}</span> 組 循環賽程
+                            </div>
+                            <div className="p-4 sm:p-6 space-y-4 bg-slate-50">
+                              {groupMatches.map((match) => {
+                                const t1 = teams.find(t => t.id === match.team1Id);
+                                const t2 = teams.find(t => t.id === match.team2Id);
+                                return <MatchCard key={match.id} match={match} t1={t1} t2={t2} onUpdateScore={handleUpdateScore} hasComment={matchComments[match.id]} isLoadingComment={loadingComments[match.id]} onGenerateComment={handleAIGenerateCommentary} />;
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {confirmDialog && (
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                  <h3 className="text-xl font-bold text-slate-800 mb-3">系統確認</h3>
+                  <p className="text-slate-600 mb-6 font-medium leading-relaxed">{confirmDialog.message}</p>
+                  <div className="flex justify-end gap-3">
+                    <button onClick={() => setConfirmDialog(null)} className="px-4 py-2 rounded-lg font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">取消</button>
+                    <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="px-4 py-2 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md">確定執行</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
