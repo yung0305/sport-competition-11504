@@ -1,13 +1,21 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-TW" class="h-full">
- <head>
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Competition Scorer</title>
+  
+  <!-- 載入 Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  
+  <!-- 載入 Cropper.js 用於圖片裁切 (CSS + JS) -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+
   <script src="/_sdk/element_sdk.js"></script>
   <script src="/_sdk/data_sdk.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
   <style>
     * { font-family: 'Nunito', sans-serif; }
     .cute-shadow { box-shadow: 4px 4px 0px rgba(0,0,0,0.1); }
@@ -23,60 +31,93 @@
     }
     .animate-bounce-in { animation: bounce-in 0.4s ease-out; }
     .bar-animate { animation: bar-grow 0.5s ease-out; transform-origin: bottom; }
+    
+    /* 裁切區塊最高高度限制，避免圖片太大超出螢幕 */
+    .cropper-view-box,
+    .cropper-face {
+      border-radius: 50%; /* 裁切框顯示為圓形預覽 */
+    }
+    .img-container {
+      max-height: 60vh;
+      width: 100%;
+    }
   </style>
   <style>body { box-sizing: border-box; }</style>
- </head>
- <body class="h-full bg-gradient-to-br from-pink-100 via-purple-50 to-blue-100">
-  <div id="app" class="h-full overflow-auto p-4 md:p-6">
-   
-   <div class="text-center mb-6">
-    <div class="inline-block bg-white rounded-2xl px-6 py-3 cute-shadow border-4 border-purple-200">
-     <input type="text" id="game-title" placeholder="🎮 輸入遊戲名稱 🎮" class="text-2xl md:text-3xl font-extrabold text-center bg-transparent outline-none text-purple-600 placeholder-purple-300 w-full min-w-[200px]">
-    </div>
-   </div>
-
-   <div class="bg-white rounded-2xl p-4 cute-shadow border-4 border-yellow-200 mb-6 overflow-x-auto">
-    <table class="w-full min-w-[400px]">
-     <thead>
-      <tr id="table-header">
-       <th class="text-left p-2 text-purple-600 font-bold">🏷️ 名稱</th>
-       <th class="text-center p-2 text-purple-600 font-bold">📊 總分</th>
-       <th class="p-2"></th>
-      </tr>
-     </thead>
-     <tbody id="teams-body">
-      </tbody>
-    </table>
+</head>
+<body class="h-full bg-gradient-to-br from-pink-100 via-purple-50 to-blue-100">
+  <div id="app" class="h-full overflow-auto p-4 md:p-6 relative">
     
-    <div class="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3 w-full">
-      <button id="remove-column-btn" class="bg-orange-400 hover:bg-orange-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base"> ➖ 減少回合 </button> 
-      <button id="add-column-btn" class="bg-green-400 hover:bg-green-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base"> ➕ 增加回合 </button>
-      <button id="sort-btn" class="bg-yellow-400 hover:bg-yellow-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base"> 🏆 依分排序 </button>
-      <button id="reset-btn" class="bg-red-400 hover:bg-red-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base"> 🔄 重置分數 </button>
-      <button id="add-team-btn" class="col-span-2 md:col-span-1 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base"> ➕ 新增隊伍 🎉 </button>
+    <div class="text-center mb-6">
+      <div class="inline-block bg-white rounded-2xl px-6 py-3 cute-shadow border-4 border-purple-200">
+        <input type="text" id="game-title" placeholder="請輸入賽事名稱" class="text-2xl md:text-3xl font-extrabold text-center bg-transparent outline-none text-purple-600 placeholder-purple-300 w-full min-w-[200px]">
+      </div>
     </div>
-   </div>
 
-   <div class="bg-white rounded-2xl p-4 cute-shadow border-4 border-green-200">
-    <h2 class="text-xl font-bold text-center text-green-600 mb-2">📈 即時比分圖表</h2>
-    <div id="chart-container" class="flex items-end justify-center gap-4 h-[260px] px-4 mt-4">
-     </div>
-   </div>
-   
-   <div class="text-center mt-6 text-4xl flex justify-center items-center gap-4">
-    <span class="text-yellow-400">⭐</span>
-    <button id="trophy-btn" class="hover:scale-125 transition-transform duration-300 drop-shadow-lg focus:outline-none" title="點擊播放/停止頒獎樂！">
-     🏆
-    </button>
-    <span class="text-yellow-400">⭐</span>
-   </div>
-   
-   <audio id="award-music" src="award.mp3" preload="auto"></audio>
+    <div class="bg-white rounded-2xl p-4 cute-shadow border-4 border-yellow-200 mb-6 overflow-x-auto">
+      <table class="w-full min-w-[500px]">
+        <thead>
+          <tr id="table-header">
+            <!-- 標題由 JS 動態生成 -->
+          </tr>
+        </thead>
+        <tbody id="teams-body">
+          <!-- 隊伍列由 JS 動態生成 -->
+        </tbody>
+      </table>
+      
+      <div class="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3 w-full">
+        <button id="remove-column-btn" class="bg-orange-400 hover:bg-orange-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base">刪除回合</button>
+        <button id="add-column-btn" class="bg-green-400 hover:bg-green-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base">新增回合</button>
+        <button id="sort-btn" class="bg-yellow-400 hover:bg-yellow-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base">總分排序</button>
+        <button id="reset-btn" class="bg-red-400 hover:bg-red-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base">分數重置</button>
+        <button id="add-team-btn" class="col-span-2 md:col-span-1 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white py-3 rounded-xl font-bold cute-shadow transition-all hover:scale-[1.02] text-sm md:text-base">➕ 新增隊伍</button>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-4 cute-shadow border-4 border-green-200">
+      <h2 class="text-xl font-bold text-center text-green-600 mb-2">📊 戰績排行榜</h2>
+      <div id="chart-container" class="flex items-end justify-center gap-4 h-[280px] px-4 mt-4">
+        <!-- 圖表由 JS 動態生成 -->
+      </div>
+    </div>
+
+    <div class="text-center mt-6 text-4xl flex justify-center items-center gap-4">
+      <span class="text-yellow-400">✨</span>
+      <button id="trophy-btn" class="hover:scale-125 transition-transform duration-300 drop-shadow-lg focus:outline-none" title="播放頒獎音效">
+        🏆
+      </button>
+      <span class="text-yellow-400">✨</span>
+    </div>
+    <audio id="award-music" src="award.mp3" preload="auto"></audio>
+
+    <!-- 圖片裁切彈出視窗 (預設隱藏) -->
+    <div id="crop-modal" class="hidden fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl p-4 md:p-6 w-full max-w-lg shadow-2xl animate-bounce-in flex flex-col">
+        <h3 class="text-lg font-bold text-slate-800 mb-4 text-center">✂️ 拖曳並縮放以調整隊徽範圍</h3>
+        
+        <!-- 圖片容器 -->
+        <div class="img-container bg-slate-100 rounded-lg overflow-hidden border-2 border-slate-200 flex items-center justify-center">
+          <img id="crop-image" src="" alt="等待裁切的圖片" class="max-w-full block">
+        </div>
+
+        <p class="text-xs text-slate-400 text-center mt-3">提示：系統會自動進行高畫質壓縮，為您節省容量！</p>
+
+        <!-- 操作按鈕 -->
+        <div class="flex justify-between gap-3 mt-4">
+          <button id="crop-cancel-btn" class="flex-1 px-4 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+            取消
+          </button>
+          <button id="crop-save-btn" class="flex-1 px-4 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md">
+            ✅ 裁切並儲存
+          </button>
+        </div>
+      </div>
+    </div>
 
   </div>
 
   <script>
-    // --- 本地預覽用的 SDK 模擬環境 ---
+    // --- 假裝的 SDK 邏輯 (本機預覽用) ---
     if (typeof window.elementSdk === 'undefined') {
       window.elementSdk = {
         init: (cfg) => { if(cfg.onConfigChange) cfg.onConfigChange(cfg.defaultConfig); },
@@ -86,8 +127,8 @@
     if (typeof window.dataSdk === 'undefined') {
       window.dataSdk = {
         init: (handler) => { 
-          window._mockHandler = handler; 
-          setTimeout(() => handler.onDataChanged([]), 100);
+           window._mockHandler = handler;
+           setTimeout(() => handler.onDataChanged([]), 100);
         },
         create: async (data) => {
           data.__backendId = 'mock_id_' + Date.now();
@@ -108,10 +149,10 @@
         }
       };
     }
-    // -------------------------------------------
 
+    // -------------------------------------------
     const defaultConfig = {
-      game_title: '🎮 歡樂競賽 🎮',
+      game_title: '秋季運動會計分板',
       font_family: 'Nunito',
       font_size: 16,
       background_color: '#fce7f3',
@@ -125,7 +166,6 @@
     let teamsData = [];
     let scoreColumns = 3;
     let isLoading = false;
-
     const barColors = [
       '#f472b6', '#a78bfa', '#60a5fa', '#34d399', 
       '#fbbf24', '#fb923c', '#f87171', '#a3e635'
@@ -152,7 +192,6 @@
         renderChart();
       }
     };
-
     window.dataSdk.init(dataHandler);
 
     document.getElementById('game-title').addEventListener('input', (e) => {
@@ -160,7 +199,7 @@
       window.elementSdk.setConfig({ game_title: e.target.value });
     });
 
-    // 🎵 音樂播放按鈕邏輯
+    // 頒獎音樂邏輯
     const trophyBtn = document.getElementById('trophy-btn');
     const awardMusic = document.getElementById('award-music');
     let isPlaying = false;
@@ -170,15 +209,14 @@
         awardMusic.pause();
         awardMusic.currentTime = 0;
         trophyBtn.classList.remove('animate-bounce');
-        showMessage('⏹️ 音樂已停止', 'bg-gray-500');
+        showMessage('音樂已停止', 'bg-gray-500');
       } else {
-        // 加上錯誤捕捉機制，如果找不到檔案會跳出提示
         awardMusic.play().then(() => {
           trophyBtn.classList.add('animate-bounce');
-          showMessage('🎵 播放頒獎音樂！', 'bg-pink-500');
+          showMessage('🏆 頒獎典禮開始！', 'bg-pink-500');
         }).catch(err => {
-          console.error('播放失敗:', err);
-          showMessage('⚠️ 找不到音樂檔！請確保 award.mp3 和 HTML 放在同一個資料夾', 'bg-red-500');
+          console.error('音樂播放失敗:', err);
+          showMessage('無法播放，請確認 award.mp3 是否在同一資料夾', 'bg-red-500');
         });
       }
       isPlaying = !isPlaying;
@@ -199,6 +237,7 @@
         type: 'team',
         name: `隊伍 ${teamsData.length + 1}`,
         scores: JSON.stringify(Array(scoreColumns).fill(0)),
+        logo: '', // 照片欄位
         order: teamsData.length
       };
       
@@ -207,7 +246,7 @@
       document.getElementById('add-team-btn').disabled = false;
     });
 
-    // 增減回合
+    // 新增/刪除 回合
     document.getElementById('add-column-btn').addEventListener('click', async () => {
       if (isLoading || scoreColumns >= 10) return;
       scoreColumns++;
@@ -220,7 +259,7 @@
       await updateAllTeamsColumns();
     });
 
-    // 依總分排序
+    // 排序
     document.getElementById('sort-btn').addEventListener('click', async () => {
       if (isLoading || teamsData.length === 0) return;
       isLoading = true;
@@ -236,13 +275,13 @@
       isLoading = false;
       renderTable();
       renderChart();
-      showMessage('🏆 已依總分重新排序！', 'bg-yellow-500');
+      showMessage('已經依照總分重新排序！', 'bg-yellow-500');
     });
 
     // 重置分數
     document.getElementById('reset-btn').addEventListener('click', async () => {
       if (isLoading || teamsData.length === 0) return;
-      if (!confirm('⚠️ 確定要將所有隊伍的分數歸零嗎？此動作無法復原。')) return;
+      if (!confirm('確定要將所有隊伍的分數歸零嗎？')) return;
       
       isLoading = true;
       for (const team of teamsData) {
@@ -252,7 +291,7 @@
       isLoading = false;
       renderTable();
       renderChart();
-      showMessage('🔄 所有分數已歸零！', 'bg-blue-500');
+      showMessage('分數已歸零', 'bg-blue-500');
     });
 
     async function updateAllTeamsColumns() {
@@ -268,34 +307,112 @@
       renderTable();
     }
 
+
+    /* --- 圖片裁切與壓縮邏輯 (Cropper.js) --- */
+    let cropperInstance = null;
+    let currentUploadTeamId = null;
+
+    // 開啟裁切彈窗
+    function openCropModal(imageSrc, teamId) {
+      currentUploadTeamId = teamId;
+      const cropModal = document.getElementById('crop-modal');
+      const cropImage = document.getElementById('crop-image');
+      
+      // 設定圖片來源
+      cropImage.src = imageSrc;
+      cropModal.classList.remove('hidden');
+
+      // 初始化或重建 Cropper
+      if (cropperInstance) {
+        cropperInstance.destroy();
+      }
+      
+      cropperInstance = new Cropper(cropImage, {
+        aspectRatio: 1,      // 鎖定 1:1 正方形
+        viewMode: 1,         // 限制裁切框不超出圖片範圍
+        autoCropArea: 0.8,   // 預設裁切框大小 (80%)
+        dragMode: 'move',    // 預設行為是拖曳圖片
+      });
+    }
+
+    // 關閉裁切彈窗
+    function closeCropModal() {
+      document.getElementById('crop-modal').classList.add('hidden');
+      if (cropperInstance) {
+        cropperInstance.destroy();
+        cropperInstance = null;
+      }
+      currentUploadTeamId = null;
+    }
+
+    document.getElementById('crop-cancel-btn').addEventListener('click', closeCropModal);
+
+    // 儲存裁切後的圖片並壓縮
+    document.getElementById('crop-save-btn').addEventListener('click', async () => {
+      if (!cropperInstance || !currentUploadTeamId) return;
+
+      // 取得裁切後的 Canvas，並強制轉換為最高 300x300 的尺寸進行縮放
+      const canvas = cropperInstance.getCroppedCanvas({
+        width: 300,
+        height: 300,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+      });
+
+      // 將圖片轉換為 JPEG 並以 80% 的品質進行「壓縮」
+      // 這個動作能將原本幾 MB 的照片縮小到約 10~30KB 左右
+      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+      const team = teamsData.find(t => t.__backendId === currentUploadTeamId);
+      if (team) {
+        team.logo = compressedBase64;
+        await window.dataSdk.update(team);
+        showMessage('隊徽更新成功！', 'bg-green-500');
+      }
+
+      closeCropModal();
+    });
+    /* --------------------------------- */
+
     function renderTable() {
       const header = document.getElementById('table-header');
-      let headerHTML = '<th class="text-left p-2 text-purple-600 font-bold">🏷️ 名稱</th>';
+      let headerHTML = '<th class="text-center p-2 text-purple-600 font-bold w-16">隊徽/照片</th><th class="text-left p-2 text-purple-600 font-bold">隊伍名稱</th>';
       for (let i = 0; i < scoreColumns; i++) {
         headerHTML += `<th class="text-center p-2 text-purple-600 font-bold min-w-[60px]">回合 ${i + 1}</th>`;
       }
-      headerHTML += '<th class="text-center p-2 text-purple-600 font-bold">📊 總分</th><th class="p-2"></th>';
+      headerHTML += '<th class="text-center p-2 text-purple-600 font-bold">總分</th><th class="p-2"></th>';
       header.innerHTML = headerHTML;
 
       const tbody = document.getElementById('teams-body');
       if (teamsData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${scoreColumns + 3}" class="text-center py-8 text-gray-400"><div class="text-4xl mb-2">🎯</div><div>點擊「新增隊伍」開始比賽！</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${scoreColumns + 4}" class="text-center py-8 text-gray-400"><div class="text-4xl mb-2">📭</div><div>尚無隊伍資料</div></td></tr>`;
         return;
       }
+
+      // 預設相機 Icon
+      const defaultLogo = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%239ca3af' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z'></path><circle cx='12' cy='13' r='3' stroke-width='2'></circle></svg>";
 
       tbody.innerHTML = teamsData.map((team, index) => {
         const scores = JSON.parse(team.scores || '[]');
         const total = scores.reduce((sum, s) => sum + (parseInt(s) || 0), 0);
+        const logoSrc = team.logo || defaultLogo;
         
         let row = `<tr class="border-t border-purple-100 animate-bounce-in" style="animation-delay: ${index * 0.05}s">
+            <td class="p-2 text-center">
+              <label class="cursor-pointer inline-flex items-center justify-center w-12 h-12 rounded-full overflow-hidden border-2 border-dashed ${team.logo ? 'border-purple-400' : 'border-purple-200 p-2'} hover:border-purple-500 bg-white transition-all shadow-sm group relative">
+                <img src="${logoSrc}" class="w-full h-full object-cover group-hover:opacity-30 transition-opacity">
+                <span class="absolute text-xs font-bold text-purple-700 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center bg-white/70 w-full h-full">更換</span>
+                <input type="file" class="hidden logo-input" data-id="${team.__backendId}" accept="image/*">
+              </label>
+            </td>
             <td class="p-2">
               <input type="text" value="${escapeHtml(team.name)}" data-id="${team.__backendId}" class="name-input w-full px-3 py-2 rounded-lg border-2 border-purple-200 focus:border-purple-400 outline-none font-semibold text-purple-700 bg-purple-50">
             </td>`;
-        
+            
         for (let i = 0; i < scoreColumns; i++) {
           row += `<td class="p-2 text-center">
               <div class="flex items-center justify-center gap-1">
-                <button data-id="${team.__backendId}" data-index="${i}" data-action="decrease" class="score-btn w-7 h-7 bg-red-400 hover:bg-red-500 text-white rounded-full font-bold text-sm transition-all hover:scale-110">−</button>
+                <button data-id="${team.__backendId}" data-index="${i}" data-action="decrease" class="score-btn w-7 h-7 bg-red-400 hover:bg-red-500 text-white rounded-full font-bold text-sm transition-all hover:scale-110">-</button>
                 <input type="number" value="${scores[i] || 0}" data-id="${team.__backendId}" data-index="${i}" class="score-input w-14 text-center px-1 py-1 rounded-lg border-2 border-yellow-300 focus:border-yellow-500 outline-none font-bold text-lg">
                 <button data-id="${team.__backendId}" data-index="${i}" data-action="increase" class="score-btn w-7 h-7 bg-green-400 hover:bg-green-500 text-white rounded-full font-bold text-sm transition-all hover:scale-110">+</button>
               </div>
@@ -303,7 +420,7 @@
         }
         
         row += `<td class="p-2 text-center"><span class="inline-block bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-2 rounded-xl font-extrabold text-lg cute-shadow">${total}</span></td>
-            <td class="p-2"><button data-id="${team.__backendId}" class="delete-btn w-8 h-8 bg-gray-300 hover:bg-red-400 text-white rounded-full font-bold transition-all hover:scale-110">✕</button></td></tr>`;
+            <td class="p-2"><button data-id="${team.__backendId}" class="delete-btn w-8 h-8 bg-gray-300 hover:bg-red-400 text-white rounded-full font-bold transition-all hover:scale-110">×</button></td></tr>`;
         return row;
       }).join('');
 
@@ -311,6 +428,7 @@
     }
 
     function attachTableListeners() {
+      // 監聽隊名變更
       document.querySelectorAll('.name-input').forEach(input => {
         input.addEventListener('change', async (e) => {
           const id = e.target.dataset.id;
@@ -319,6 +437,28 @@
         });
       });
 
+      // 監聽照片上傳 (修改為：選擇圖片後打開裁切視窗)
+      document.querySelectorAll('.logo-input').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const teamId = e.target.dataset.id;
+          const reader = new FileReader();
+
+          reader.onload = (event) => {
+            // 打開裁切視窗，傳遞 Base64 與要更新的隊伍 ID
+            openCropModal(event.target.result, teamId);
+          };
+
+          reader.readAsDataURL(file);
+          
+          // 清空 input，允許使用者再次點擊上傳同一張照片
+          e.target.value = '';
+        });
+      });
+
+      // 監聽分數輸入框變更
       document.querySelectorAll('.score-input').forEach(input => {
         input.addEventListener('change', async (e) => {
           const id = e.target.dataset.id;
@@ -333,6 +473,7 @@
         });
       });
 
+      // 監聽加減分按鈕
       document.querySelectorAll('.score-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           const id = e.target.dataset.id;
@@ -348,6 +489,7 @@
         });
       });
 
+      // 監聽刪除按鈕
       document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           e.preventDefault();
@@ -359,14 +501,14 @@
               btn.dataset.confirm = 'false';
             } else {
               btn.dataset.confirm = 'true';
-              btn.innerHTML = '✓';
+              btn.innerHTML = '確定';
               btn.classList.remove('bg-gray-300');
-              btn.classList.add('bg-red-500');
+              btn.classList.add('bg-red-500', 'px-2', 'w-auto');
               setTimeout(() => {
                 if (btn.dataset.confirm === 'true') {
                   btn.dataset.confirm = 'false';
-                  btn.innerHTML = '✕';
-                  btn.classList.remove('bg-red-500');
+                  btn.innerHTML = '×';
+                  btn.classList.remove('bg-red-500', 'px-2', 'w-auto');
                   btn.classList.add('bg-gray-300');
                 }
               }, 2000);
@@ -378,8 +520,9 @@
 
     function renderChart() {
       const container = document.getElementById('chart-container');
+      
       if (teamsData.length === 0) {
-        container.innerHTML = `<div class="text-gray-400 text-center flex flex-col justify-end h-full pb-8"><div class="text-4xl mb-2">📊</div><div>新增隊伍後即可看到圖表</div></div>`;
+        container.innerHTML = `<div class="text-gray-400 text-center flex flex-col justify-end h-full pb-8"><div class="text-4xl mb-2">📊</div><div>等待隊伍加入...</div></div>`;
         return;
       }
 
@@ -398,18 +541,23 @@
         const isFirst = index === maxIndex && total === maxScore && total > 0;
         
         return `
-          <div class="flex flex-col items-center gap-2">
-            ${isFirst ? '<div class="text-3xl animate-bounce">🏆</div>' : '<div class="h-9"></div>'}
+          <div class="flex flex-col items-center gap-1">
+            ${isFirst ? '<div class="text-3xl animate-bounce">👑</div>' : '<div class="h-9"></div>'}
+            
             <div class="relative" style="height: 160px; display: flex; align-items: flex-end;">
               <div 
-                class="bar-animate w-12 md:w-16 rounded-t-xl cute-shadow flex items-start justify-center pt-2"
+                class="bar-animate w-12 md:w-16 rounded-t-xl cute-shadow flex items-start justify-center pt-2 relative"
                 style="height: ${height}px; background: ${color};"
               >
-                <span class="text-white font-bold text-sm">${total}</span>
+                <!-- 在柱子頂部顯示總分 -->
+                <span class="text-white font-bold text-sm z-10">${total}</span>
               </div>
             </div>
-            <div class="text-center">
-              <div class="w-16 md:w-20 truncate font-semibold text-purple-700 text-sm">${escapeHtml(team.name)}</div>
+
+            <!-- 底部：隊徽與名稱 -->
+            <div class="text-center flex flex-col items-center">
+              ${team.logo ? `<img src="${team.logo}" class="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-white cute-shadow z-10 -mt-5 mb-1 bg-white">` : '<div class="h-2"></div>'}
+              <div class="w-16 md:w-20 truncate font-semibold text-purple-700 text-sm ${!team.logo && 'mt-3'}">${escapeHtml(team.name)}</div>
             </div>
           </div>
         `;
@@ -432,5 +580,5 @@
 
     document.getElementById('game-title').value = config.game_title;
   </script>
- </body>
+</body>
 </html>
